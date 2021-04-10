@@ -1,0 +1,185 @@
+---
+title: "Yahoo_ESG_Fund_Pull"
+output: html_document
+---
+
+```{r setup, echo = F}
+knitr::opts_chunk$set(warning = FALSE, 
+                      message = FALSE, 
+                      fig.align = "center")
+```
+
+# Step 1: Preparation
+
+## Load Packages
+
+```{r load-packages}
+# uncomment as necessary:
+#install.packages("tidyverse")
+#install.packages("urltools")
+#install.packages("httr")
+#install.packages("robotstxt")
+library(tidyverse)
+library(urltools)
+library(httr)
+library(robotstxt)
+```
+
+## Write Helper Functions to Extract Data
+
+### Data Parsing Function
+
+```{r fun-parse-func}
+fun_parse <- function(xpath, xmldoc = page.i) {
+  x <- xmldoc %>% 
+    html_nodes(xpath = xpath) %>%
+    html_text(trim = TRUE)
+  if (length(x) == 0 & xpath == '//*[@id="Col1-0-Sustainability-Proxy"]/section/div[2]/div[2]/div[2]/div/div[2]/div[1]/span/span/span') {
+    return("None")
+  }
+  if (grepl("% AUM", x)) {
+    return(as.numeric(sub("% AUM", "", sub("based on ", "", x))) / 100)
+  }
+  if (!grepl("\\d", x)) {
+    return(trimws(x))
+  } else {
+    if (grepl("percentile", x)) {
+      return(x %>% str_replace_all("[^0-9\\.]", "") %>% as.numeric() / 100)
+    } else {
+      if (grepl("updated on", x)) {
+        r <- sub("Last updated on ", "", x)
+        r <- paste(unlist(strsplit(r, "/"))[2], unlist(strsplit(r, "/"))[1], sep = "-")
+        return(anytime::anydate(r))
+      } else {
+        return(as.numeric(x))
+      }
+    }
+  }
+}
+```
+
+### Yahoo “Product Involvement Areas” Helper Function
+
+```{r fun-lists-func}
+fun_lists <- function() {
+  x <- page.i %>%
+    html_nodes(xpath = '//*[@id="Col2-3-InvolvementAreas-Proxy"]/section/table') %>%
+    html_table() %>%
+    data.frame()
+  n <- sum(grepl("Yes", x[, 2]))
+  if (n == 0) return(NA)
+  if (n == 1) return(x[grep("Yes", x[, 2]), 1])
+  if (n >= 2) return(list(x[grep("Yes", x[, 2]), 1]))
+}
+```
+
+### Wrapper Function for robots.txt - paths_allowed() function
+
+```{r fun-robots-func}
+fun_robots <- function(url = link.i) {
+  base_url <- paste0(url_parse(url)$scheme, "://", domain(url))
+  paths_allowed(
+    paths = sub(base_url, "", link.i), 
+    domain = domain(url), 
+    bot = "*"
+  )
+}
+```
+
+### Get Default User Agent
+
+```{r user-agent}
+httr:::default_ua()
+## [1] "libcurl/7.64.1 r-curl/4.3 httr/1.4.2"
+```
+
+### Establish Custom User Agent String Variable
+
+```{r custom-ua}
+var_agent <- "Scott Burstein (scott.burstein@duke.edu). Doing academic research."
+```
+
+# Step 2: Create Data Tables
+
+## Create Mutual Funds Data Table
+
+```{r mutual-fund-table}
+# NEED TO LOAD THIS CSV FILE TO CORRECT LOCATION ON YOUR LOCAL COMPUTER FIRST:
+# https://www.kylerudden.com/blog/scraping-esg-scores/dat_funds.csv
+# Location for me: 
+#dat_funds <- read.csv("dat_funds.csv")
+
+dat_funds <- funds_financial
+dat_funds
+```
+
+### Create Placeholder Columns for ESG Fund Data
+
+```{r fund-esg-placeholders}
+dat_funds$esgRating    <- as.character(NA) # ESG Rating
+dat_funds$esgScore.tot <- as.integer(NA)   # ESS Score (Total/Portfolio)
+dat_funds$esgScore.env <- as.integer(NA)   # ESG Score (Environmental)
+dat_funds$esgScore.soc <- as.integer(NA)   # ESG Score (Social)
+dat_funds$esgScore.gov <- as.integer(NA)   # ESG Score (Governance)
+```
+
+# Step 3: Download ESG Data:
+
+## Download Mutual Funds ESG Data
+
+```{r download-fund-esg-data}
+i <- 1
+for (i in 1:nrow(dat_funds)) {
+  message(paste0(i, " of ", nrow(dat_funds)))
+  tryCatch({
+    tick.i <- dat_funds$fund_symbol[i]
+    link.i <- paste0("https://finance.yahoo.com/quote/", tick.i, "/sustainability")
+    bots.i <- suppressMessages(fun_robots(link.i))
+    if (bots.i) {
+      Sys.sleep(runif(1, 0.5, 3.0))
+      page.i <- GET(link.i, user_agent(var_agent)) %>% content()
+      if (grepl("ESG", fun_parse('//*[@id="Col1-0-Sustainability-Proxy"]/section/div[1]/h3/span'))) {
+        dat_funds$esgRating[i] <- fun_parse('//*[@id="Col1-0-Sustainability-Proxy"]/section/div[1]/div/div[1]/div/div[3]/div/span')
+        dat_funds$esgScore.tot[i] <- fun_parse('//*[@id="Col1-0-Sustainability-Proxy"]/section/div[1]/div/div[1]/div/div[2]/div[1]')
+        dat_funds$esgScore.env[i] <- fun_parse('//*[@id="Col1-0-Sustainability-Proxy"]/section/div[1]/div/div[2]/div/div[2]/div[1]')
+        dat_funds$esgScore.soc[i] <- fun_parse('//*[@id="Col1-0-Sustainability-Proxy"]/section/div[1]/div/div[3]/div/div[2]/div[1]')
+        dat_funds$esgScore.gov[i] <- fun_parse('//*[@id="Col1-0-Sustainability-Proxy"]/section/div[1]/div/div[4]/div/div[2]/div[1]')
+      }
+    }
+  }, error=function(e){})
+}
+```
+
+### Inspect Raw Score and Controversy Deduction
+
+
+# Step 4: Initial Analysis
+
+### Funds Data Summary
+
+```{r funds-data-summary}
+fund_look <- subset(dat_funds, !is.na(esgRating)) %>%
+  group_by(fund_family) %>%
+  summarise(
+    esgScore.tot = ceiling(mean(esgScore.tot)),
+    esgScore.env = ceiling(mean(esgScore.env)),
+    esgScore.soc = ceiling(mean(esgScore.soc)),
+    esgScore.gov = ceiling(mean(esgScore.gov)),
+  ) %>%
+  ungroup()
+fund_look <- fund_look[order(fund_look$esgScore.tot, decreasing = TRUE), ]
+fund_look
+```
+
+## Save Finished Dataframe to .csv File
+
+```{r save-stock-csv}
+# view data
+view(dat_funds)
+#save to .csv file
+write.csv(dat_funds, 'funds_financial_esg_data.csv')
+```
+
+# Reference Cited:
+
+https://www.kylerudden.com/blog/scraping-esg-scores/
