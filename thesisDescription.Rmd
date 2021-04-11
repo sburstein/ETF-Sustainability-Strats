@@ -1,0 +1,179 @@
+---
+title: "Senior Thesis Description"
+subtitle: "A Preliminary Study of European ETFs and Mutual Funds"
+author: "Scott Burstein"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document: 
+    fig_height: 4
+    fig_width: 6
+---
+
+```{r setup, echo = F}
+knitr::opts_chunk$set(warning = FALSE, 
+                      message = FALSE, 
+                      fig.align = "center")
+```
+
+### Acronyms
+
+**ESG** Environmental, Social, Governance  
+**SRI** Socially Responsible Investing  
+**CSR** Corporate Social Responsibility  
+**ETF** Exchange Traded Fund  
+**ROE** Return on Equity  
+
+## Introduction
+
+Investors who seek funds with high ESG/SRI ratings can consider sustainability and CSR in many different ways. One of the most common frameworks is profit-driven, and is predicated on the notion that investments with high ESG and SRI ratings will outperform the market as a result of their commitment to ESG values. Another approach factors in ESG performance as a side-effect of the investment, and these investors are willing to yield lower returns as a consequence of their holdings' higher ethical standards and reduced impact on the environment. Recent influxes of millennial and first-time investors signal a shift in traditional market dynamics, and it is important to understand how these trends may impact market sentiment towards ESG/SRI themed investments.
+
+For my thesis, I hope to look at whether or not there is 
+
+## Load Packages & Data
+
+```{r load-packages, echo = F}
+library(tidyverse)
+library(knitr)
+library(broom)
+library(patchwork)
+library(tidyquant)
+```
+
+
+```{r load-data, echo = F}
+European_ETFs <- read.csv("/Users/ScottBurstein/Desktop/spring2021/github_repos/ETF-Sustainability-Strats/Morningstar_Data/Morningstar - European ETFs.csv")
+
+European_Mutual_Funds <- read.csv("/Users/ScottBurstein/Desktop/spring2021/github_repos/ETF-Sustainability-Strats/Morningstar_Data/Morningstar - European Mutual Funds.csv")
+```
+
+```{r size-style-sustainability-plots, echo = F}
+# ETF Equity Style vs. Sustainability Percentage Rank
+
+etf_style_sust_boxplot <- European_ETFs %>% ggplot(aes(x = equity_style, y = sustainability_percentage_rank)) + 
+  geom_boxplot(varwidth=T, fill="plum") + 
+  ggtitle("European ETFs") +
+  labs(x = "Equity Style",
+       y = "Relative Sustainability Percentage Rank") +
+  scale_x_discrete(labels=c("Other", "Blend", "Growth", "Value")) +
+  theme_classic()
+
+# Mutual Fund Equity Style vs. Sustainability Percentage Rank
+
+mf_style_sust_boxplot <- European_Mutual_Funds %>% ggplot(aes(x = equity_style, y = sustainability_percentage_rank)) + 
+  geom_boxplot(varwidth=T, fill="light blue") +
+  ggtitle("European Mutual Funds") +
+  labs(x = "Equity Style") +
+  theme(axis.title.y = element_blank()) +
+  scale_x_discrete(labels=c("Other", "Blend", "Growth", "Value")) +
+  theme_classic() +
+  theme(axis.title.y = element_blank())
+
+# ETF Equity Size vs. Sustainability Percentage Rank
+
+# Modify dataframe
+ETF_size_df <- European_ETFs %>% 
+  filter(equity_size %in% c("Small", "Medium", "Large"))
+
+# Reorder Levels S/M/L
+ETF_size_df$equity_size <- factor(ETF_size_df$equity_size, levels = c("Small", "Medium", "Large"))
+
+# Plot
+etf_size_sust_boxplot <- ETF_size_df %>% ggplot(aes(x = equity_size, y = sustainability_percentage_rank)) + 
+  geom_boxplot(varwidth=T, fill="plum") + 
+  ggtitle("European ETFs") +
+  labs(x = "Equity Size",
+       y = "Relative Sustainability Percentage Rank") +
+  theme_classic()
+
+# Mutual Fund Equity Size vs. Sustainability Percentage Rank
+
+# Modify dataframe
+MF_size_df <- European_Mutual_Funds %>% 
+  filter(equity_size %in% c("Small", "Medium", "Large"))
+
+# Reorder Levels S/M/L
+MF_size_df$equity_size <- factor(MF_size_df$equity_size, levels = c("Small", "Medium", "Large"))
+
+# Plot
+mf_size_sust_boxplot <- MF_size_df %>% ggplot(aes(x = equity_size, y = sustainability_percentage_rank)) + 
+  geom_boxplot(varwidth=T, fill="light blue") + 
+  ggtitle("European Mutual Funds") +
+  labs(x = "Equity Size") + 
+  theme_classic() +
+  theme(axis.title.y = element_blank())
+
+# Format Outputs
+
+# Style Box Plots
+style_sust_boxplots <- (etf_style_sust_boxplot + mf_style_sust_boxplot) + 
+  plot_annotation(title = "Equity Style vs. Sustainability Percentile",
+       subtitle = "Data From Morningstar Analytics")
+
+# Size Box Plots
+size_sust_boxplots <- (etf_size_sust_boxplot + mf_size_sust_boxplot) + 
+  plot_annotation(title = "Equity Size vs. Sustainability Percentile",
+       subtitle = "Data From Morningstar Analytics")
+
+# Display Outputs
+style_sust_boxplots
+size_sust_boxplots
+```
+
+```{r sustainability-roe-plots, echo = F}
+etf_sust_roe_plot <- European_ETFs %>% ggplot(aes(x = sustainability_percentage_rank, y = roe)) +
+  geom_point() +
+  ggtitle("European ETFs") +
+  geom_smooth(method="lm") +
+  labs(y = "ROE") +
+  theme_tq() +
+  theme(axis.title.x = element_blank()) +
+  ylim(-50, 50)
+
+mf_sust_roe_plot <- European_Mutual_Funds %>% ggplot(aes(x = sustainability_percentage_rank, y = roe)) +
+  geom_point() +
+  ggtitle("European Mutual Funds") +
+  geom_smooth(method="lm") +
+  labs(x = "Relative Sustainability Percentage Rank",
+       y = "ROE") +
+  theme_tq() +
+  ylim(-50, 50)
+
+# Format Outputs
+sust_roe_plots <- (etf_sust_roe_plot / mf_sust_roe_plot) +
+  plot_annotation(title = "Sustainability Percentile vs. Return on Equity (ROE)",
+                  subtitle = "Data From Morningstar Analytics")
+
+# Display Outputs
+sust_roe_plots
+```
+
+$$\text{ROE} = \beta_0 + \beta_1 ~ \text{SustainabilityScore} + \epsilon$$
+
+We want to evaluate $\beta_1$ in the above statistical model. Our null hypothesis will be that a fund's sustainability rating does not correlate with the fund's ROE. 
+
+$$H_o: \beta_1 = 0$$
+Our alternative hypothesis will then be that a fund's sustainability rating does correlate with the fund's ROE.
+
+$$H_a: \beta_1 \neq 0$$
+This hypothesis test does not seek to establish a causal relationship between a fund's sustainability score and its ROE. Rather, the results should indicate whether or not there is a positive, nonexistent, or negative relationship. This will provide support for a later discussion of the possible mechanisms which correlate an investment's sustainability rating and it's financial performance.
+
+```{r roe-sustainability-model, echo = F}
+etf_roe_model <- lm(roe ~ sustainability_score, data = European_ETFs)
+etf_roe_model %>% 
+  tidy(conf.int = TRUE) %>%
+  kable(digits = 3, 
+        caption = "Prediction of ROE given Sustainability Rating for ETFs")
+
+mf_roe_model <- lm(roe ~ sustainability_score, data = European_Mutual_Funds)
+mf_roe_model %>% 
+  tidy(conf.int = TRUE) %>%
+  kable(digits = 3, 
+        caption = "Prediction of ROE given Sustainability Rating for Mutual Funds")
+```
+
+
+# References Cited:
+
+**Data Source:**
+https://www.kaggle.com/stefanoleone992/european-funds-dataset-from-morningstar
+
