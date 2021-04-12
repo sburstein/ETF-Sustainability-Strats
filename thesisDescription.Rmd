@@ -22,14 +22,33 @@ knitr::opts_chunk$set(warning = FALSE,
 **CSR** Corporate Social Responsibility  
 **ETF** Exchange Traded Fund  
 **ROE** Return on Equity  
+**IQR** Interquartile Range
 
-## Introduction
+# Introduction
 
 Investors who seek funds with high ESG/SRI ratings can consider sustainability and CSR in many different ways. One of the most common frameworks is profit-driven, and is predicated on the notion that investments with high ESG and SRI ratings will outperform the market as a result of their commitment to ESG values. Another approach factors in ESG performance as a side-effect of the investment, and these investors are willing to yield lower returns as a consequence of their holdings' higher ethical standards and reduced impact on the environment. Recent influxes of millennial and first-time investors signal a shift in traditional market dynamics, and it is important to understand how these trends may impact market sentiment towards ESG/SRI themed investments.
 
-For my thesis, I hope to look at whether or not there is 
+## Hypothesis Development
 
-## Load Packages & Data
+For my thesis, I will first assess whether more sustainable funds yield higher, equal, or lower returns than less sustainable funds. There are many different ways to evaluate this relationship, and a significant portion of my future research will be dedicated to determining the most accurate predictors of an investment's long-term sustainability, fund performance, and potential confounding factors.
+
+### Existing Hypotheses about SRI Returns
+
+Previous research has been focused on the relationship between CSR and investment performance. It is necessary to describe the three potential relationships that exist between an investment's sustainability and financial performance.
+
+#### Negative Relationship between Sustainability and Financial Performance  
+
+Milton Friedman was one of the first to argue that a business's social responsibility was to increase profits, and that it is not possible to achieve both profit maximization and direct SRI (Friedman, 1970). This relationship would expect a negative relationship between sustainability and fund performance. 
+
+#### No Relationship between Sustainability and Financial Performance  
+
+It is also possible that there is a neutral association between CSR and investment performance. Many factors related to a company's CSR initiatives can increase both costs and benefits. Supporters of this relationship point to the complexity of the relationship between CSR and financial performance as indication that strong correlations can be attributed to confounding variables and insufficient data (Ullmann, 1985).
+
+#### Positive Relationship between Sustainability and Financial Performance  
+
+The final plausible relationship is that there is a positive association between CSR and investment returns This is driven by the notion that companies with good CSR performance are managed well and have mitigated future ESG risks. This would lead to higher expected returns (Pokorna, 2017).
+
+# Data
 
 ```{r load-packages, echo = F}
 library(tidyverse)
@@ -39,12 +58,30 @@ library(patchwork)
 library(tidyquant)
 ```
 
-
 ```{r load-data, echo = F}
 European_ETFs <- read.csv("/Users/ScottBurstein/Desktop/spring2021/github_repos/ETF-Sustainability-Strats/Morningstar_Data/Morningstar - European ETFs.csv")
 
 European_Mutual_Funds <- read.csv("/Users/ScottBurstein/Desktop/spring2021/github_repos/ETF-Sustainability-Strats/Morningstar_Data/Morningstar - European Mutual Funds.csv")
 ```
+
+The data sets contain observations for 9,495 European ETFs and 57,603 European Mutual Funds with 132 variables pertaining to:
+
+**General Aspects:** portfolio style, total net assets, management company, and size  
+**Portfolio Indicators:** cash, stocks, bonds, and sector breakdown  
+**Returns:** year to date from 2011 through 2020  
+**Financial Ratios:** price/earning, Traynor/Sharpe ratios, alpha, and beta  
+
+Additional data in terms of sustainability is also available, such as:
+
+**Involvement:** with controversial commodities, energy sources, and "sin" activities   
+**ESG Scores:** aggregate as well as individual environmental, governance, and social scores  
+**Sustainability Rank:** relative rank by sector is included for each fund  
+
+## Acknowledgements
+
+Data was scraped by [Stefano Leone](https://www.kaggle.com/stefanoleone992) from the publicly available [Morningstar website](https://www.morningstar.co.uk).
+
+# Visual Exploration
 
 ```{r size-style-sustainability-plots, echo = F}
 # ETF Equity Style vs. Sustainability Percentage Rank
@@ -147,6 +184,24 @@ sust_roe_plots <- (etf_sust_roe_plot / mf_sust_roe_plot) +
 sust_roe_plots
 ```
 
+Now we will move on to a quantitative analysis of the relationship between an investment's sustainability score and the fund's ROE. It is important to note that while the above visualizations used relative sustainability percentages, which is a percentile rank of the investment's sustainability score relative to other investments, the below models use Morningstar's sustainability 0-100 sustainability rating.
+
+```{r sustainability-score-summaries, echo = F}
+summary(European_ETFs$sustainability_score) %>% 
+  tidy() %>% 
+  kable(digits = 2, 
+        caption = "Summary Statistics for the Morningstar Sustainability Scores of European ETFs")
+
+summary(European_Mutual_Funds$sustainability_score) %>% 
+  tidy() %>% 
+  kable(digits = 2, 
+        caption = "Summary Statistics for the Morningstar Sustainability Scores of European Mutual Funds")
+```
+
+The pure sustainability rating was not used in the above visualizations since the IQR of sustainability ratings for ETFs was [21.83, 25.50] and the IQR of sustainability ratings for Mutual Funds was [21.93, 25.51] in the data sets.
+
+Since the funds were tightly clustered together, it was challenging to infer any meaningful visual interpretation of the data, however it is still possible to calculate $\beta_1$ in the model described below.
+
 $$\text{ROE} = \beta_0 + \beta_1 ~ \text{SustainabilityScore} + \epsilon$$
 
 We want to evaluate $\beta_1$ in the above statistical model. Our null hypothesis will be that a fund's sustainability rating does not correlate with the fund's ROE. 
@@ -156,6 +211,8 @@ Our alternative hypothesis will then be that a fund's sustainability rating does
 
 $$H_a: \beta_1 \neq 0$$
 This hypothesis test does not seek to establish a causal relationship between a fund's sustainability score and its ROE. Rather, the results should indicate whether or not there is a positive, nonexistent, or negative relationship. This will provide support for a later discussion of the possible mechanisms which correlate an investment's sustainability rating and it's financial performance.
+
+Since the slope ($\beta_1$) of our model represents how much a fund's ROE responds to changes in the fund's sustainability score, we will calculate a 95% confidence interval for the slope, and examine whether it excludes 0. If it does, then we can rule out the likelihood that the slope is 0. Thus, we conclude that there is a significant relationship between sustainability score and ROE.
 
 ```{r roe-sustainability-model, echo = F}
 etf_roe_model <- lm(roe ~ sustainability_score, data = European_ETFs)
@@ -171,9 +228,31 @@ mf_roe_model %>%
         caption = "Prediction of ROE given Sustainability Rating for Mutual Funds")
 ```
 
+As shown in the tables above, the 95% confidence interval for the slope ($\beta_1$) in the ETF linear regression model is [-0.731, -0.633]. Since the interval excludes 0, we can conclude that there is a statistically significant negative relationship between sustainability score and ROE for ETFs, with a mean slope equal to -0.682 units of $\frac{net~income~/~shareholder~equity}{sustainability~score}$.
+
+The 95% confidence interval for the slope ($\beta_1$) in the Mutual Fund linear regression model is [-0.761, -0.712]. Since the interval excludes 0, we can conclude that there is a statistically significant negative relationship between sustainability score and ROE for mutual funds, with a mean slope equal to -0.736 units of $\frac{net~income~/~shareholder~equity}{sustainability~score}$.
+
+# Conclusion
 
 # References Cited:
 
-**Data Source:**
+**Data Source:**  
 https://www.kaggle.com/stefanoleone992/european-funds-dataset-from-morningstar
 
+**Milton Friedman Paper:**  
+Friedman, M. (September 13, 1970). The social responsibility of business is to increase its profits. New York Times Magazine, pages 173–178.
+https://link.springer.com/chapter/10.1007/978-3-540-70818-6_14
+
+**Arieh A. Ullmann Paper:**  
+Ullmann, A. A. (1985). Data in search of a theory: A critical examination of the relationships among social performance, social disclosure, and economic performance of us firms. Academy of Management Review, 10(3):540–557.
+https://www.researchgate.net/publication/269641205_Data_in_Search_of_a_Theory_A_Critical_Examination_of_the_Relationships_Among_Social_Performance_Social_Disclosure_and_Economic_Performance_of_US_Firms
+
+**Marketa Pokorna Thesis:**  
+https://thesis.eur.nl/pub/41396/Pokorna-M.-449106-.pdf
+
+**Hilary Chidi Thesis:**  
+https://dash.harvard.edu/handle/1/37736804
+
+**Vanguard Perspective:**  
+ESG and alpha: A look inside the numbers
+https://advisors.vanguard.com/insights/article/esgandalphaalookinsidethenumbers
