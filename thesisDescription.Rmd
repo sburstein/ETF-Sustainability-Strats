@@ -32,6 +32,24 @@ Investors who seek funds with high ESG/SRI ratings can consider sustainability a
 
 For my thesis, I will first assess whether more sustainable funds yield higher, equal, or lower returns than less sustainable funds. There are many different ways to evaluate this relationship, and a significant portion of my future research will be dedicated to determining the most accurate predictors of an investment's long-term sustainability, fund performance, and potential confounding factors.
 
+Then, I hope to study other markers for an investment's ESG performance, and draw meaningful connections between these sustainability metrics and traditional financial profit/risk indicators. In the process, I will develop reproducible analysis methods in R, increase my understanding of the financial markets, and explore some of the nuanced ways sustainability data is used to make investment decisions.
+
+I recognize that my thesis will need to become more refined as my research continues. Ultimately, I hope that it will lead to actionable steps that portfolio managers and investors can take to make their holdings more climate-friendly and also more profitable.
+
+Potential research questions that I am interested in exploring further include:
+
+Is seeking a causal relationship between ESG and profit wrong? If so, should ESG be considered through an entirely different/new lens?
+
+Will the risks which ESG quantifies become more important in the coming years? If so, is it necessary to develop a more structured relationship between ESG and investment volatility?
+
+Are highly rated ESG/SRI investments currently overvalued as a result of the recent increase in climate-conscious and socially responsible investors? If so, is it best to short ESG/SRI funds?
+
+Are the financial returns on investments and traditional sustainability metrics inversely correlated? If so, are there better ways to invest in the planet such as through industry-specific or thematic funds?
+
+How do ESG/SRI themed funds differ in their construction from other funds?
+
+Developing insights that answer one or multiple of these questions would also contribute to the growing body of literature focused on sustainable investing strategies and serve as a benchmark for future research.
+
 ### Existing Hypotheses about SRI Returns
 
 Previous research has been focused on the relationship between CSR and investment performance. It is necessary to describe the three potential relationships that exist between an investment's sustainability and financial performance.
@@ -79,7 +97,7 @@ Additional data in terms of sustainability is also available, such as:
 
 ## Acknowledgements
 
-Data was scraped by [Stefano Leone](https://www.kaggle.com/stefanoleone992) from the publicly available [Morningstar website](https://www.morningstar.co.uk).
+Data was scraped by [*Stefano Leone*](https://www.kaggle.com/stefanoleone992) from the publicly available [Morningstar website](https://www.morningstar.co.uk).
 
 # Visual Exploration
 
@@ -151,12 +169,48 @@ size_sust_boxplots <- (etf_size_sust_boxplot + mf_size_sust_boxplot) +
   plot_annotation(title = "Equity Size vs. Sustainability Percentile",
        subtitle = "Data From Morningstar Analytics")
 
-# Display Outputs
+# Display style_sust_boxplots Output
 style_sust_boxplots
+```
+```{r value-style-percentiles, echo = F, results = "hide"}
+# ETF value style summary stats.
+European_ETFs %>%
+  filter(equity_style == "Value") %>%
+  select(sustainability_percentage_rank) %>%
+  summary()
+
+# Mutual Funds value style summary stats.
+European_Mutual_Funds %>%
+  filter(equity_style == "Value") %>%
+  select(sustainability_percentage_rank) %>%
+  summary()
+```
+
+Looking at the equity style vs. sustainability percentile box plots, it is evident that both ETFs and Mutual Funds exhibit similar trends, where value funds have higher percentile sustainability rankings on average than blend and growth style funds. Value ETFs have a median sustainability percentage rank in the 67th percentile. Compared to value mutual funds, which have a median sustainability percentage rank in the 58th percentile.
+
+```{r size_sust_boxplot, echo = F}
+# Display size_sust_boxplots Output
 size_sust_boxplots
 ```
 
+```{r small-size-percentiles, echo = F, results = "hide"}
+# ETF small size summary stats.
+European_ETFs %>%
+  filter(equity_size == "Small") %>%
+  select(sustainability_percentage_rank) %>%
+  summary()
+
+# Mutual funds small size summary stats.
+European_Mutual_Funds %>%
+  filter(equity_size == "Small") %>%
+  select(sustainability_percentage_rank) %>%
+  summary()
+```
+
+Looking at the equity size vs. sustainability percentile box plots, it is evident that both ETFs and Mutual Funds exhibit similar trends, where small size funds have higher percentile sustainability rankings on average than medium and large style funds. Small size ETFs have a median sustainability percentage rank in the 79th percentile. Compared to small size mutual funds, which have a median sustainability percentage rank in the 64th percentile.
+
 ```{r sustainability-roe-plots, echo = F}
+# ETF Sustainability percentage rank vs. ROE plot
 etf_sust_roe_plot <- European_ETFs %>% ggplot(aes(x = sustainability_percentage_rank, y = roe)) +
   geom_point() +
   ggtitle("European ETFs") +
@@ -166,6 +220,7 @@ etf_sust_roe_plot <- European_ETFs %>% ggplot(aes(x = sustainability_percentage_
   theme(axis.title.x = element_blank()) +
   ylim(-50, 50)
 
+# Mutual funds Sustainability percentage rank vs. ROE plot
 mf_sust_roe_plot <- European_Mutual_Funds %>% ggplot(aes(x = sustainability_percentage_rank, y = roe)) +
   geom_point() +
   ggtitle("European Mutual Funds") +
@@ -187,11 +242,13 @@ sust_roe_plots
 Now we will move on to a quantitative analysis of the relationship between an investment's sustainability score and the fund's ROE. It is important to note that while the above visualizations used relative sustainability percentages, which is a percentile rank of the investment's sustainability score relative to other investments, the below models use Morningstar's sustainability 0-100 sustainability rating.
 
 ```{r sustainability-score-summaries, echo = F}
+# ETF sustainability score summary stats.
 summary(European_ETFs$sustainability_score) %>% 
   tidy() %>% 
   kable(digits = 2, 
         caption = "Summary Statistics for the Morningstar Sustainability Scores of European ETFs")
 
+# Mutual funds sustainability score summary stats.
 summary(European_Mutual_Funds$sustainability_score) %>% 
   tidy() %>% 
   kable(digits = 2, 
@@ -214,13 +271,19 @@ This hypothesis test does not seek to establish a causal relationship between a 
 
 Since the slope ($\beta_1$) of our model represents how much a fund's ROE responds to changes in the fund's sustainability score, we will calculate a 95% confidence interval for the slope, and examine whether it excludes 0. If it does, then we can rule out the likelihood that the slope is 0. Thus, we conclude that there is a significant relationship between sustainability score and ROE.
 
-```{r roe-sustainability-model, echo = F}
+```{r etf-roe-sustainability-model, echo = F}
+# ETF roe ~ sustainability_score linear model output
 etf_roe_model <- lm(roe ~ sustainability_score, data = European_ETFs)
 etf_roe_model %>% 
   tidy(conf.int = TRUE) %>%
   kable(digits = 3, 
         caption = "Prediction of ROE given Sustainability Rating for ETFs")
+```
 
+The 95% confidence interval for the slope ($\beta_1$) in the ETF linear regression model is [-0.731, -0.633]. Since the interval excludes 0, we can conclude that there is a statistically significant negative relationship between sustainability score and ROE for ETFs, with a mean slope equal to -0.682 units of $\frac{net~income~/~shareholder~equity}{sustainability~score}$.
+
+```{r mf-roe-sustainability-model, echo = F}
+# Mutual fund roe ~ sustainability_score linear model output
 mf_roe_model <- lm(roe ~ sustainability_score, data = European_Mutual_Funds)
 mf_roe_model %>% 
   tidy(conf.int = TRUE) %>%
@@ -228,11 +291,16 @@ mf_roe_model %>%
         caption = "Prediction of ROE given Sustainability Rating for Mutual Funds")
 ```
 
-As shown in the tables above, the 95% confidence interval for the slope ($\beta_1$) in the ETF linear regression model is [-0.731, -0.633]. Since the interval excludes 0, we can conclude that there is a statistically significant negative relationship between sustainability score and ROE for ETFs, with a mean slope equal to -0.682 units of $\frac{net~income~/~shareholder~equity}{sustainability~score}$.
-
 The 95% confidence interval for the slope ($\beta_1$) in the Mutual Fund linear regression model is [-0.761, -0.712]. Since the interval excludes 0, we can conclude that there is a statistically significant negative relationship between sustainability score and ROE for mutual funds, with a mean slope equal to -0.736 units of $\frac{net~income~/~shareholder~equity}{sustainability~score}$.
 
 # Conclusion
+
+One obstacle I will face during this research is obtaining pertinent and high quality data. The data sets used in this preliminary analysis was obtained from Kaggle, an online community of data scientists and researchers. In my future work, I will want to focus on the U.S. markets. Most of the ESG data currently available is either cost prohibitive or outdated.
+I will want to use data from MSCI, Morningstar, or another sustainability analytics firm for the bulk of my analysis, and am optimistic that I will receive funding from Duke's Nicholas School of the Environment and the Repass-Rodgers Scholar Program I am part of to get access to these data sets.
+
+Regarding the above analysis, perhaps it was unnecessary to consider ETFs and mutual funds as distinct groups. My logic was that these funds may be constructed in distinct ways, and that these differences may contribute to differences in their overall or relative sustainability performance. However, after seeing that both types have very similar distributions of sustainability scores and also overlapping IQRs for the $\beta_1$ sustainability score slope coefficient and the $\beta_0$ ROE-intercept in the regression models, it could be that they regard (or disregard) ESG related risks in the same way, and thus diversify their funds in similar ways. 
+
+It could also be that studying individual stock performance instead of fund performance allows for a more comprehensive understanding of the relationship between ESG/SRI and financial performance, as individual stocks will have a wider distribution of both ESG ratings and financial returns, since there is no investment diversification.
 
 # References Cited:
 
@@ -254,5 +322,5 @@ https://thesis.eur.nl/pub/41396/Pokorna-M.-449106-.pdf
 https://dash.harvard.edu/handle/1/37736804
 
 **Vanguard Perspective:**  
-ESG and alpha: A look inside the numbers
+ESG and alpha: A look inside the numbers  
 https://advisors.vanguard.com/insights/article/esgandalphaalookinsidethenumbers
